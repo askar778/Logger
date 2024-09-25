@@ -1,69 +1,46 @@
 <?php
+require __DIR__ . '/../vendor/autoload.php'; // Adjust the path if necessary
 
-// Load environment variables from .env file
-require 'vendor/autoload.php'; // Ensure this path is correct
-
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
-$dotenv->load();
-
-
-// Error reporting (for debugging purposes)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// Database connection credentials
-$servername = $_ENV['DB_SERVER'];
-$username = $_ENV['DB_USERNAME'];
-$password = $_ENV['DB_PASSWORD'];
-$dbname = $_ENV['DB_NAME'];
-
-// Create connection
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+// Create MongoDB client
+$client = new MongoDB\Client("mongodb://localhost:27017"); // Change URI as needed
+$collection = $client->your_database_name->your_collection_name; // Replace with your DB and collection names
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Get form data
-    $firstname = $_POST['firstname'];
-    $lastname = $_POST['lastname'];
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $phone = $_POST['phone'];
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
-    $address = $_POST['address'];
+    // Log incoming form data
+    error_log("Form submitted: " . print_r($_POST, true));
+
+    // Capture form variables
+    $firstname = $_POST['firstname'] ?? null;
+    $lastname = $_POST['lastname'] ?? null;
+    $password = $_POST['password'] ?? null;
+    $confirm_password = $_POST['confirm_password'] ?? null;
+
+    // Log captured variables
+    error_log("First Name: $firstname");
+    error_log("Last Name: $lastname");
     
     // Check if passwords match
     if ($password !== $confirm_password) {
+        error_log("Passwords do not match!");
         echo "Passwords do not match!";
         exit;
     }
-    
-    // Hash password before saving for security
-    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-    
-    // Prepare and bind
-    $stmt = $conn->prepare("INSERT INTO Users (firstname, lastname, username, email, phone, address, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param( "sssssss", $firstname, $lastname, $username, $email, $phone,  $address, $hashed_password);
-    
-    // Execute the statement
-    if ($stmt->execute()) {
-        // Redirect to login page
-        header("Location: logger.html");
-        exit;
-    } else {
-        echo "Error: " . $stmt->error;
+
+    // Prepare the data for insertion
+    $data = [
+        'firstname' => $firstname,
+        'lastname' => $lastname,
+        // Add other fields as needed
+    ];
+
+    // Attempt to insert into MongoDB
+    try {
+        $result = $collection->insertOne($data); // Your insert code here
+        error_log("Insert result: " . print_r($result, true));
+        echo "Data inserted successfully!";
+    } catch (MongoDB\Driver\Exception\Exception $e) {
+        error_log("MongoDB Insert Error: " . $e->getMessage());
+        echo "MongoDB Insert Error: " . $e->getMessage();
     }
-
-    // Close the statement
-    $stmt->close();
 }
-
-// Close the connection
-$conn->close();
 ?>
-
